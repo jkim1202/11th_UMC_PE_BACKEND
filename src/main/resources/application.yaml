@@ -12,4 +12,6 @@ spring:
     username: ${DB_USER}
     password: ${DB_PW}
 
-
+tmdb:
+  base-url: ${TMDB_BASE_URL}
+  access-token: ${TMDB_ACCESS_TOKEN}
