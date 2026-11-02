@@ -1,9 +1,14 @@
 package org.example.umcbackend.service;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.umcbackend.domain.dto.EmailCheckResponse;
+import org.example.umcbackend.domain.dto.MemberResponse;
 import org.example.umcbackend.domain.dto.NicknameCheckResponse;
+import org.example.umcbackend.domain.dto.SignUpRequest;
+import org.example.umcbackend.domain.entity.Member;
 import org.example.umcbackend.repository.MemberRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public NicknameCheckResponse checkNickname(String nickname) {
@@ -23,5 +29,25 @@ public class MemberService {
     public EmailCheckResponse checkEmail(String email) {
         boolean exists = memberRepository.existsByEmail(email);
         return new EmailCheckResponse(!exists);
+    }
+
+    @Transactional
+    public MemberResponse signUp(SignUpRequest request) {
+        if(memberRepository.existsByEmail(request.email())){
+            throw new IllegalArgumentException("이미 사용중인 이메일입니다.");
+        }
+        if(memberRepository.existsByNickname(request.nickname())){
+            throw new IllegalArgumentException("이미 사용중인 닉네임입니다.");
+        }
+
+        Member member = Member.builder()
+                .email(request.email())
+                .password(passwordEncoder.encode(request.password()))
+                .nickname(request.nickname())
+                .build();
+
+        Member savedmember = memberRepository.save(member);
+
+        return MemberResponse.from(savedmember);
     }
 }

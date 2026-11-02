@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -44,6 +45,7 @@ public class Rating extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    @Builder
     public Rating(Member member, Long movieId, Integer score, String comment) {
         this.member = member;
         this.movieId = movieId;
