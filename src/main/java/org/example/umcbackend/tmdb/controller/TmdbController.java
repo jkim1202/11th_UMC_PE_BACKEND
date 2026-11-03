@@ -1,8 +1,8 @@
-package org.example.umcbackend.controller;
+package org.example.umcbackend.tmdb.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.example.umcbackend.service.TmdbService;
+import org.example.umcbackend.tmdb.service.TmdbService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

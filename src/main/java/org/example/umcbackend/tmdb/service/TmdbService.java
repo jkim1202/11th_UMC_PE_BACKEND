@@ -1,4 +1,4 @@
-package org.example.umcbackend.service;
+package org.example.umcbackend.tmdb.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;

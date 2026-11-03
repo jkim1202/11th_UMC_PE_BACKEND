@@ -1,6 +1,6 @@
-package org.example.umcbackend.repository;
+package org.example.umcbackend.member.repository;
 
-import org.example.umcbackend.domain.entity.Member;
+import org.example.umcbackend.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {

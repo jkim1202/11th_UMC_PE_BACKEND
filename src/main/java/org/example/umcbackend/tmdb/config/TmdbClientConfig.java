@@ -1,4 +1,4 @@
-package org.example.umcbackend.config;
+package org.example.umcbackend.tmdb.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

@@ -1,4 +1,4 @@
-package org.example.umcbackend.domain.entity;
+package org.example.umcbackend.member.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -7,8 +7,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.umcbackend.global.entity.BaseEntity;
 
 @Entity
 @Table(name = "member")
@@ -30,6 +32,7 @@ public class Member extends BaseEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String nickname;
 
+    @Builder
     public Member(String email, String password, String nickname) {
         this.email = email;
         this.password = password;

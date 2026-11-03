@@ -1,4 +1,4 @@
-package org.example.umcbackend.domain.entity;
+package org.example.umcbackend.rating.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,25 +11,28 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.umcbackend.global.entity.BaseEntity;
+import org.example.umcbackend.member.entity.Member;
 
 @Entity
 @Table(
-        name = "favorite",
+        name = "rating",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_favorite_member_movie",
+                name = "uk_rating_member_movie",
                 columnNames = {"member_id", "movie_id"}
         )
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Favorite extends BaseEntity {
+public class Rating extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "favorite_id")
-    private Long favoriteId;
+    @Column(name = "rating_id")
+    private Long ratingId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "member_id", nullable = false)
@@ -38,8 +41,22 @@ public class Favorite extends BaseEntity {
     @Column(name = "movie_id", nullable = false)
     private Long movieId;
 
-    public Favorite(Member member, Long movieId) {
+    @Column(nullable = false, columnDefinition = "TINYINT")
+    private Integer score;
+
+    @Column(columnDefinition = "TEXT")
+    private String comment;
+
+    @Builder
+    public Rating(Member member, Long movieId, Integer score, String comment) {
         this.member = member;
         this.movieId = movieId;
+        this.score = score;
+        this.comment = comment;
+    }
+
+    public void update(Integer score, String comment) {
+        this.score = score;
+        this.comment = comment;
     }
 }

@@ -1,8 +1,7 @@
-package org.example.umcbackend.domain.dto;
-
-import org.example.umcbackend.domain.entity.Rating;
+package org.example.umcbackend.rating.dto;
 
 import java.time.LocalDateTime;
+import org.example.umcbackend.rating.entity.Rating;
 
 public record RatingResponse(
         Long ratingId,

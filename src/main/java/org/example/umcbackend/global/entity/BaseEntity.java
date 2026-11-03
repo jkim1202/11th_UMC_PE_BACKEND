@@ -1,4 +1,4 @@
-package org.example.umcbackend.domain.entity;
+package org.example.umcbackend.global.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
