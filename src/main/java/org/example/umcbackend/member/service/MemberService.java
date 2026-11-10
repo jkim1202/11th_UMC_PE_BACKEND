@@ -2,12 +2,16 @@ package org.example.umcbackend.member.service;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.umcbackend.global.exception.ApiException;
 import org.example.umcbackend.member.dto.EmailCheckResponse;
+import org.example.umcbackend.member.dto.MemberInfoResponse;
 import org.example.umcbackend.member.dto.MemberResponse;
+import org.example.umcbackend.member.dto.MemberUpdateRequest;
 import org.example.umcbackend.member.dto.NicknameCheckResponse;
 import org.example.umcbackend.member.dto.SignUpRequest;
 import org.example.umcbackend.member.entity.Member;
 import org.example.umcbackend.member.repository.MemberRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,5 +53,29 @@ public class MemberService {
         Member savedmember = memberRepository.save(member);
 
         return MemberResponse.from(savedmember);
+    }
+
+    @Transactional(readOnly = true)
+    public MemberInfoResponse getMyInfo(Long memberId) {
+        return MemberInfoResponse.from(findMember(memberId));
+    }
+
+    @Transactional
+    public MemberInfoResponse updateMyInfo(Long memberId, MemberUpdateRequest request) {
+        Member member = findMember(memberId);
+
+        // DB UNIQUE 제약 위반 대신 우리가 정한 응답을 주기 위해 먼저 확인합니다.
+        if (memberRepository.existsByNicknameAndMemberIdNot(request.nickname(), memberId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "MEMBER409_1", "이미 사용 중인 닉네임입니다.");
+        }
+
+        member.updateNickname(request.nickname());
+        return MemberInfoResponse.from(member);
+    }
+
+    private Member findMember(Long memberId) {
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEMBER404_1",
+                        "해당 회원을 찾을 수 없습니다."));
     }
 }
