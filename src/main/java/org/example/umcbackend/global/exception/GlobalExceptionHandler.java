@@ -32,4 +32,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status)
                 .body(ApiResponse.failure("COMMON" + status, exception.getReason()));
     }
+
+    // 직접 던진 예외는 예외가 들고 온 상태 코드와 코드 문자열을 그대로 씁니다.
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException exception) {
+        return ResponseEntity.status(exception.getStatus())
+                .body(ApiResponse.failure(exception.getCode(), exception.getMessage()));
+    }
 }
