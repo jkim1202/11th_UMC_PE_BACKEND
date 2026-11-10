@@ -2,6 +2,7 @@ package org.example.umcbackend.rating.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.umcbackend.global.interceptor.AuthInterceptor;
 import org.example.umcbackend.global.response.ApiResponse;
 import org.example.umcbackend.rating.dto.CreateRatingRequest;
 import org.example.umcbackend.rating.dto.RatingResponse;
@@ -14,39 +15,44 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/members")
 public class RatingController {
 
     private final RatingService ratingService;
 
-    @GetMapping("/{memberId}/ratings")
+    // 유저별 평점 조회는 공개 API라 토큰을 받지 않습니다.
+    @GetMapping("/members/{memberId}/ratings")
     public ResponseEntity<ApiResponse<List<RatingResponse>>> getMemberRatings(@PathVariable Long memberId) {
         List<RatingResponse> ratings = ratingService.getRatingsByMember(memberId);
         return ResponseEntity.ok(ApiResponse.ok("평점 조회에 성공했습니다.", ratings));
     }
 
-    @PostMapping("/{memberId}/ratings")
-    public ResponseEntity<ApiResponse<Long>> create(
-            @PathVariable Long memberId,
+    // memberId는 요청이 아니라 인터셉터가 토큰에서 꺼내 담아둔 값을 씁니다.
+    @PostMapping("/ratings")
+    public ResponseEntity<ApiResponse<RatingResponse>> create(
+            @RequestAttribute(AuthInterceptor.MEMBER_ID) Long memberId,
             @Valid @RequestBody CreateRatingRequest request
     ) {
-        Long ratingId = ratingService.create(memberId, request);
-        return ResponseEntity.status(201).body(ApiResponse.created("평점 등록에 성공했습니다.", ratingId));
+        RatingResponse response = ratingService.create(memberId, request);
+        return ResponseEntity.status(201).body(ApiResponse.created("평점 등록에 성공했습니다.", response));
     }
 
-    @PatchMapping("/{memberId}/ratings/{ratingId}")
-    public ResponseEntity<ApiResponse<Void>> update(
-            @PathVariable Long memberId,
+    @PatchMapping("/ratings/{ratingId}")
+    public ResponseEntity<ApiResponse<RatingResponse>> update(
+            @RequestAttribute(AuthInterceptor.MEMBER_ID) Long memberId,
             @PathVariable Long ratingId,
             @Valid @RequestBody UpdateRatingRequest request
     ) {
-        ratingService.update(ratingId, memberId, request);
-        return ResponseEntity.ok(ApiResponse.ok("평점 수정에 성공했습니다.", null));
+        RatingResponse response = ratingService.update(memberId, ratingId, request);
+        return ResponseEntity.ok(ApiResponse.ok("평점 수정에 성공했습니다.", response));
     }
 
-    @DeleteMapping("/{memberId}/ratings/{ratingId}")
-    public ResponseEntity<Void> delete(@PathVariable Long memberId, @PathVariable Long ratingId) {
-        ratingService.delete(ratingId, memberId);
-        return ResponseEntity.noContent().build();
+    // 공통 응답 형식을 지키기 위해 204 대신 200 + result null로 응답합니다.
+    @DeleteMapping("/ratings/{ratingId}")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @RequestAttribute(AuthInterceptor.MEMBER_ID) Long memberId,
+            @PathVariable Long ratingId
+    ) {
+        ratingService.delete(memberId, ratingId);
+        return ResponseEntity.ok(ApiResponse.ok("평점 삭제에 성공했습니다.", null));
     }
 }

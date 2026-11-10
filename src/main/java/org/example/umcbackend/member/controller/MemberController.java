@@ -2,9 +2,12 @@ package org.example.umcbackend.member.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.umcbackend.global.interceptor.AuthInterceptor;
 import org.example.umcbackend.global.response.ApiResponse;
 import org.example.umcbackend.member.dto.EmailCheckResponse;
+import org.example.umcbackend.member.dto.MemberInfoResponse;
 import org.example.umcbackend.member.dto.MemberResponse;
+import org.example.umcbackend.member.dto.MemberUpdateRequest;
 import org.example.umcbackend.member.dto.NicknameCheckResponse;
 import org.example.umcbackend.member.dto.SignUpRequest;
 import org.example.umcbackend.member.service.MemberService;
@@ -17,6 +20,23 @@ import org.springframework.web.bind.annotation.*;
 public class MemberController {
 
     private final MemberService memberService;
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MemberInfoResponse>> getMyInfo(
+            @RequestAttribute(AuthInterceptor.MEMBER_ID) Long memberId
+    ) {
+        MemberInfoResponse response = memberService.getMyInfo(memberId);
+        return ResponseEntity.ok(ApiResponse.ok("회원 정보를 조회했습니다.", response));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<MemberInfoResponse>> updateMyInfo(
+            @RequestAttribute(AuthInterceptor.MEMBER_ID) Long memberId,
+            @Valid @RequestBody MemberUpdateRequest request
+    ) {
+        MemberInfoResponse response = memberService.updateMyInfo(memberId, request);
+        return ResponseEntity.ok(ApiResponse.ok("회원 정보를 수정했습니다.", response));
+    }
 
     @GetMapping("/nickname/{nickname}")
     public NicknameCheckResponse checkNickname(@PathVariable String nickname) {

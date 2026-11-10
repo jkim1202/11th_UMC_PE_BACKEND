@@ -1,0 +1,334 @@
+### =====================================================================
+### 7주차 - 로그인한 사용자를 구분하기 : 전체 시나리오
+###
+### 사용법 (IntelliJ HTTP Client)
+###   1) 서버를 켠다 (JWT_SECRET, JWT_ACCESS_EXPIRATION=3600)
+###   2) 파일 상단의 "Run All" 또는 위에서부터 차례로 ▶ 실행
+###      - 토큰과 ratingId는 응답에서 자동으로 저장된다
+###   3) 제목에 📸 가 붙은 요청이 캡처 대상이다
+###      - [미션 1~4] : 필수 미션 제출물
+###      - [체크]     : 실습 체크리스트 확인용
+###      - [선택]     : 선택 미션
+###   4) 응답 패널에서 상태 코드 + 바디(code, message, result)가 함께 보이도록 캡처
+###
+### 다시 처음부터 돌려도 된다
+###   - 회원가입은 두 번째부터 실패(이미 가입)해도 정상
+###   - movieId는 매번 무작위라 평점 등록이 중복으로 막히지 않는다
+### =====================================================================
+
+@host = http://localhost:8080
+@password = Aa123!@#
+
+
+### ---------------------------------------------------------------------
+### [시나리오 1] 준비 - 회원 A, B 가입
+### ---------------------------------------------------------------------
+
+### 1-1. 회원가입 A (처음 201, 이미 가입돼 있으면 실패해도 괜찮음)
+POST {{host}}/members
+Content-Type: application/json
+
+{
+  "email": "a@umc.com",
+  "password": "{{password}}",
+  "nickname": "회원A"
+}
+
+### 1-2. 회원가입 B (처음 201, 이미 가입돼 있으면 실패해도 괜찮음)
+POST {{host}}/members
+Content-Type: application/json
+
+{
+  "email": "b@umc.com",
+  "password": "{{password}}",
+  "nickname": "회원B"
+}
+
+
+### ---------------------------------------------------------------------
+### [시나리오 2] 로그인 - 토큰 A, 토큰 B 발급
+### ---------------------------------------------------------------------
+
+### 📸 [미션 1] 로그인 성공 A → 200, result.accessToken 확인
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "a@umc.com",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("[미션 1] 로그인 성공 200 + accessToken 발급", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(!!response.body.result.accessToken, "accessToken 없음");
+    });
+    const token = response.body.result.accessToken;
+    client.global.set("tokenA", token);
+
+    // [체크] 서명 위조용: payload 한 글자만 바꾼 토큰을 만들어 둔다
+    const parts = token.split(".");
+    const i = Math.floor(parts[1].length / 2);
+    const swapped = parts[1][i] === "A" ? "B" : "A";
+    parts[1] = parts[1].substring(0, i) + swapped + parts[1].substring(i + 1);
+    client.global.set("tamperedToken", parts.join("."));
+
+    client.log("토큰 A (jwt.io에 붙여넣어 payload 확인): " + token);
+%}
+
+### 2-2. 로그인 B → 200
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "b@umc.com",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("로그인 B 성공 200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+    });
+    client.global.set("tokenB", response.body.result.accessToken);
+%}
+
+
+### ---------------------------------------------------------------------
+### [시나리오 3~9] 평점 CRUD
+### ---------------------------------------------------------------------
+
+### 📸 [미션 4] 3. 본인 토큰으로 평점 등록 → 201 COMMON201 (바디에 memberId 없음)
+POST {{host}}/ratings
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{$random.integer(1, 999999)}},
+  "score": 5,
+  "comment": "최고의 영화"
+}
+
+> {%
+    client.test("[미션 4] 평점 등록 201 COMMON201", function () {
+        client.assert(response.status === 201, "status: " + response.status);
+        client.assert(response.body.code === "COMMON201", "code: " + response.body.code);
+    });
+    client.global.set("ratingId", response.body.result.ratingId);
+    client.global.set("movieId", response.body.result.movieId);
+%}
+
+### 4. 같은 영화로 중복 등록 → 409 RATING409_1
+POST {{host}}/ratings
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{movieId}},
+  "score": 3,
+  "comment": "한 번 더"
+}
+
+> {%
+    client.test("중복 등록 409 RATING409_1", function () {
+        client.assert(response.status === 409, "status: " + response.status);
+        client.assert(response.body.code === "RATING409_1", "code: " + response.body.code);
+    });
+%}
+
+### 5. 본인 평점 수정 (토큰 A) → 200
+PATCH {{host}}/ratings/{{ratingId}}
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "score": 4,
+  "comment": "다시 보니 4점"
+}
+
+> {%
+    client.test("본인 수정 200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+    });
+%}
+
+### 📸 [미션 3] 6. 남의 평점 수정 (토큰 B) → 403 RATING403_1
+PATCH {{host}}/ratings/{{ratingId}}
+Authorization: Bearer {{tokenB}}
+Content-Type: application/json
+
+{
+  "score": 1,
+  "comment": "남의 평점을 바꿔보자"
+}
+
+> {%
+    client.test("[미션 3] 남의 평점 수정 403 RATING403_1", function () {
+        client.assert(response.status === 403, "status: " + response.status);
+        client.assert(response.body.code === "RATING403_1", "code: " + response.body.code);
+    });
+%}
+
+### 📸 [체크] 7. 토큰 없이 평점 수정 → 401 AUTH401_2 (6번 403과 code 비교)
+PATCH {{host}}/ratings/{{ratingId}}
+Content-Type: application/json
+
+{
+  "score": 1,
+  "comment": "토큰 없이"
+}
+
+> {%
+    client.test("토큰 없이 수정 401 AUTH401_2", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_2", "code: " + response.body.code);
+    });
+%}
+
+### 8. 없는 평점 삭제 → 404 RATING404_1
+DELETE {{host}}/ratings/99999
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("없는 평점 삭제 404 RATING404_1", function () {
+        client.assert(response.status === 404, "status: " + response.status);
+        client.assert(response.body.code === "RATING404_1", "code: " + response.body.code);
+    });
+%}
+
+### 9. 본인 평점 삭제 → 200 COMMON200
+DELETE {{host}}/ratings/{{ratingId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("본인 삭제 200 COMMON200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(response.body.code === "COMMON200", "code: " + response.body.code);
+    });
+%}
+
+
+### ---------------------------------------------------------------------
+### 내 정보 API + 실습 체크리스트
+### ---------------------------------------------------------------------
+
+### 📸 [미션 2] 토큰 없이 내 정보 조회 → 401 AUTH401_2
+GET {{host}}/members/me
+
+> {%
+    client.test("[미션 2] 토큰 없이 /members/me 401 AUTH401_2", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_2", "code: " + response.body.code);
+    });
+%}
+
+### 내 정보 조회 (토큰 A) → 200
+GET {{host}}/members/me
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("내 정보 조회 200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+    });
+%}
+
+### 📸 [체크] payload 한 글자 바꾼 토큰 → 401 AUTH401_3 (서명 검증 실패)
+GET {{host}}/members/me
+Authorization: Bearer {{tamperedToken}}
+
+> {%
+    client.test("위조 토큰 401 AUTH401_3", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_3", "code: " + response.body.code);
+    });
+%}
+
+### 내 정보 수정 (토큰 A) → 200
+PATCH {{host}}/members/me
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "nickname": "새닉네임A"
+}
+
+> {%
+    client.test("내 정보 수정 200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+    });
+%}
+
+### 다른 회원이 쓰는 닉네임으로 수정 → 409 MEMBER409_1
+PATCH {{host}}/members/me
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "nickname": "회원B"
+}
+
+> {%
+    client.test("닉네임 중복 409 MEMBER409_1", function () {
+        client.assert(response.status === 409, "status: " + response.status);
+        client.assert(response.body.code === "MEMBER409_1", "code: " + response.body.code);
+    });
+%}
+
+### 📸 [체크] 로그인 실패 - 없는 이메일 → 401 AUTH401_1 (아래 요청과 응답이 같아야 함)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@umc.com",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("없는 이메일 401 AUTH401_1", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_1", "code: " + response.body.code);
+    });
+%}
+
+### 📸 [체크] 로그인 실패 - 틀린 비밀번호 → 401 AUTH401_1 (위 요청과 응답이 같아야 함)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "a@umc.com",
+  "password": "Wrong1234!"
+}
+
+> {%
+    client.test("틀린 비밀번호 401 AUTH401_1", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_1", "code: " + response.body.code);
+    });
+%}
+
+### 유저별 평점 조회 (공개, 토큰 없음) → 200
+GET {{host}}/members/1/ratings
+
+
+### ---------------------------------------------------------------------
+### [선택 미션 1] 토큰 만료 직접 겪어보기
+###   1) JWT_ACCESS_EXPIRATION=60 으로 바꾸고 서버 재시작
+###   2) 위의 [미션 1] 로그인 A를 다시 실행 → 바로 아래 "만료 전" 실행 후 캡처
+###   3) 약 2분 기다린 뒤 "만료 후" 실행 후 캡처
+###      (JwtUtil이 시계 차이를 60초 허용하므로 만료 60초 + 여유 60초)
+###   4) 끝나면 JWT_ACCESS_EXPIRATION=3600 으로 되돌리기
+### ---------------------------------------------------------------------
+
+### 📸 [선택] 만료 전 → 200
+GET {{host}}/members/me
+Authorization: Bearer {{tokenA}}
+
+### 📸 [선택] 만료 후 (약 2분 뒤) → 401 AUTH401_4 (토큰 없음 AUTH401_2와 구분)
+GET {{host}}/members/me
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("[선택] 만료 토큰 401 AUTH401_4", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_4", "code: " + response.body.code);
+    });
+%}
