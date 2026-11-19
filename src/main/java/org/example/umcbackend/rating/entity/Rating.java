@@ -57,6 +57,9 @@ public class Rating extends BaseEntity {
 
     public void update(Integer score, String comment) {
         this.score = score;
-        this.comment = comment;
+        // 후기를 보내지 않으면 기존 후기를 유지
+        if (comment != null) {
+            this.comment = comment;
+        }
     }
 }

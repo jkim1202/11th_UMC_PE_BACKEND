@@ -1,0 +1,340 @@
+### =====================================================================
+### 8주차 - 즐겨찾기 / 영화 기록(트랜잭션) / 프론트 연동 보완 : 전체 시나리오
+###
+### 사용법 (IntelliJ HTTP Client)
+###   1) 서버를 켠다 (JWT_SECRET, JWT_ACCESS_EXPIRATION=3600)
+###   2) 위에서부터 차례로 ▶ 실행 (토큰, movieId, ratingId는 응답에서 자동 저장)
+###   3) 제목에 📸 가 붙은 요청이 캡처 대상이다
+###   4) 응답 패널에서 상태 코드 + 바디(code, message, result)가 함께 보이도록 캡처
+###
+### 다시 처음부터 돌려도 된다
+###   - 회원가입은 두 번째부터 실패(이미 가입)해도 정상
+###   - movieId는 매번 무작위(1~999999)라 재실행해도 거의 겹치지 않는다
+###   - movie-records로 만든 평점/즐겨찾기는 정리하지 않으므로, 드물게 409가 나오면 그 요청만 다시 실행
+### =====================================================================
+
+@host = http://localhost:8080
+@password = Aa123!@#
+
+
+### ---------------------------------------------------------------------
+### [준비] 가입 + 로그인
+### ---------------------------------------------------------------------
+
+### 회원가입 A (이미 가입돼 있으면 실패해도 괜찮음)
+POST {{host}}/members
+Content-Type: application/json
+
+{
+  "email": "a@umc.com",
+  "password": "{{password}}",
+  "nickname": "회원A"
+}
+
+### 회원가입 B (이미 가입돼 있으면 실패해도 괜찮음)
+POST {{host}}/members
+Content-Type: application/json
+
+{
+  "email": "b@umc.com",
+  "password": "{{password}}",
+  "nickname": "회원B"
+}
+
+### 로그인 A → tokenA 저장
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "a@umc.com",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("로그인 A 200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+    });
+    client.global.set("tokenA", response.body.result.accessToken);
+%}
+
+### 로그인 B → tokenB 저장
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "b@umc.com",
+  "password": "{{password}}"
+}
+
+> {%
+    client.test("로그인 B 200", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+    });
+    client.global.set("tokenB", response.body.result.accessToken);
+%}
+
+
+### ---------------------------------------------------------------------
+### [즐겨찾기] 등록 / 중복 / 목록 / 여부 / 해제
+### ---------------------------------------------------------------------
+
+### 📸 즐겨찾기 등록 → 201
+POST {{host}}/favorites
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{$random.integer(1, 999999)}}
+}
+
+> {%
+    client.test("즐겨찾기 등록 201", function () {
+        client.assert(response.status === 201, "status: " + response.status);
+        client.assert(response.body.code === "COMMON201", "code: " + response.body.code);
+        client.assert(!!response.body.result.favoriteId, "favoriteId 없음");
+    });
+    client.global.set("favMovieId", response.body.result.movieId);
+%}
+
+### 📸 같은 영화 다시 즐겨찾기 → 409 FAVORITE409_1
+POST {{host}}/favorites
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{favMovieId}}
+}
+
+> {%
+    client.test("중복 즐겨찾기 409 FAVORITE409_1", function () {
+        client.assert(response.status === 409, "status: " + response.status);
+        client.assert(response.body.code === "FAVORITE409_1", "code: " + response.body.code);
+    });
+%}
+
+### 📸 내 즐겨찾기 목록 → 200, 방금 등록한 영화 포함
+GET {{host}}/favorites
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("목록 200 + 등록한 영화 포함", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        const favMovieId = parseInt(client.global.get("favMovieId"));
+        client.assert(response.body.result.some(f => f.movieId === favMovieId), "목록에 영화 없음");
+    });
+%}
+
+### 📸 즐겨찾기 여부 조회 → isFavorite true
+GET {{host}}/favorites/{{favMovieId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("isFavorite true", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(response.body.result.isFavorite === true, "isFavorite: " + response.body.result.isFavorite);
+    });
+%}
+
+### 📸 즐겨찾기 해제 → 200, result.movieId
+DELETE {{host}}/favorites/{{favMovieId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("해제 200 + result.movieId", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(String(response.body.result.movieId) === String(client.global.get("favMovieId")), "movieId 불일치");
+    });
+%}
+
+### 해제 후 여부 조회 → isFavorite false
+GET {{host}}/favorites/{{favMovieId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("isFavorite false", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(response.body.result.isFavorite === false, "isFavorite: " + response.body.result.isFavorite);
+    });
+%}
+
+
+### ---------------------------------------------------------------------
+### [영화 기록] 평점 + 즐겨찾기를 한 트랜잭션으로 저장
+### ---------------------------------------------------------------------
+
+### 📸 영화 기록 (즐겨찾기 포함) → 201, rating + favorite 모두 존재
+POST {{host}}/movie-records
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{$random.integer(1, 999999)}},
+  "score": 5,
+  "comment": "기록과 즐겨찾기를 한 번에",
+  "addToFavorites": true
+}
+
+> {%
+    client.test("영화 기록 201 + rating/favorite", function () {
+        client.assert(response.status === 201, "status: " + response.status);
+        client.assert(!!response.body.result.rating, "rating null");
+        client.assert(!!response.body.result.favorite, "favorite null");
+    });
+    client.global.set("recordMovieId", response.body.result.rating.movieId);
+%}
+
+### 📸 같은 요청 다시 → 409 RATING409_1
+POST {{host}}/movie-records
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{recordMovieId}},
+  "score": 5,
+  "comment": "기록과 즐겨찾기를 한 번에",
+  "addToFavorites": true
+}
+
+> {%
+    client.test("중복 영화 기록 409 RATING409_1", function () {
+        client.assert(response.status === 409, "status: " + response.status);
+        client.assert(response.body.code === "RATING409_1", "code: " + response.body.code);
+    });
+%}
+
+### 📸 영화 기록 (즐겨찾기 미포함) → 201, favorite null
+POST {{host}}/movie-records
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{$random.integer(1, 999999)}},
+  "score": 4,
+  "comment": "즐겨찾기는 안 함",
+  "addToFavorites": false
+}
+
+> {%
+    client.test("favorite null", function () {
+        client.assert(response.status === 201, "status: " + response.status);
+        client.assert(!!response.body.result.rating, "rating null");
+        client.assert(response.body.result.favorite === null, "favorite 존재");
+    });
+%}
+
+
+### ---------------------------------------------------------------------
+### [워크북 실습 4] 실패 케이스 + 내 정보
+### ---------------------------------------------------------------------
+
+### 📸 토큰 없이 즐겨찾기 등록 → 401 AUTH401_2
+POST {{host}}/favorites
+Content-Type: application/json
+
+{
+  "movieId": 1
+}
+
+> {%
+    client.test("토큰 없음 401 AUTH401_2", function () {
+        client.assert(response.status === 401, "status: " + response.status);
+        client.assert(response.body.code === "AUTH401_2", "code: " + response.body.code);
+    });
+%}
+
+### 📸 없는 즐겨찾기 해제 → 404 FAVORITE404_1
+DELETE {{host}}/favorites/999999999
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("없는 즐겨찾기 404 FAVORITE404_1", function () {
+        client.assert(response.status === 404, "status: " + response.status);
+        client.assert(response.body.code === "FAVORITE404_1", "code: " + response.body.code);
+    });
+%}
+
+### 📸 movieId 0 → 400
+POST {{host}}/favorites
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": 0
+}
+
+> {%
+    client.test("movieId 0 → 400", function () {
+        client.assert(response.status === 400, "status: " + response.status);
+    });
+%}
+
+### 📸 내 정보 조회 → result.memberId 존재
+GET {{host}}/members/me
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("내 정보에 memberId 포함", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(!!response.body.result.memberId, "memberId 없음");
+    });
+%}
+
+
+### ---------------------------------------------------------------------
+### [프론트 연동용 평점 확인] comment 생략 / 삭제 응답
+### ---------------------------------------------------------------------
+
+### 📸 평점 등록 (movieId, score만) → 201
+POST {{host}}/ratings
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "movieId": {{$random.integer(1, 999999)}},
+  "score": 3
+}
+
+> {%
+    client.test("평점 등록 201", function () {
+        client.assert(response.status === 201, "status: " + response.status);
+    });
+    client.global.set("ratingId", response.body.result.ratingId);
+%}
+
+### 평점 수정 후 비교용: comment 넣어서 수정
+PATCH {{host}}/ratings/{{ratingId}}
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "score": 3,
+  "comment": "유지되어야 하는 후기"
+}
+
+### 📸 score만 수정 → 200, comment 유지
+PATCH {{host}}/ratings/{{ratingId}}
+Authorization: Bearer {{tokenA}}
+Content-Type: application/json
+
+{
+  "score": 5
+}
+
+> {%
+    client.test("score만 수정해도 comment 유지", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(response.body.result.score === 5, "score: " + response.body.result.score);
+        client.assert(response.body.result.comment === "유지되어야 하는 후기", "comment: " + response.body.result.comment);
+    });
+%}
+
+### 📸 평점 삭제 → 200, result.ratingId
+DELETE {{host}}/ratings/{{ratingId}}
+Authorization: Bearer {{tokenA}}
+
+> {%
+    client.test("삭제 200 + result.ratingId 일치", function () {
+        client.assert(response.status === 200, "status: " + response.status);
+        client.assert(String(response.body.result.ratingId) === String(client.global.get("ratingId")), "ratingId 불일치");
+    });
+%}
