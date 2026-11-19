@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.umcbackend.global.entity.BaseEntity;
@@ -40,6 +41,7 @@ public class Favorite extends BaseEntity {
     @Column(name = "movie_id", nullable = false)
     private Long movieId;
 
+    @Builder
     public Favorite(Member member, Long movieId) {
         this.member = member;
         this.movieId = movieId;
