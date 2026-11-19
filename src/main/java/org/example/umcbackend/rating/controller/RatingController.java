@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.umcbackend.global.interceptor.AuthInterceptor;
 import org.example.umcbackend.global.response.ApiResponse;
 import org.example.umcbackend.rating.dto.CreateRatingRequest;
+import org.example.umcbackend.rating.dto.RatingDeleteResponse;
 import org.example.umcbackend.rating.dto.RatingResponse;
 import org.example.umcbackend.rating.dto.UpdateRatingRequest;
 import org.example.umcbackend.rating.service.RatingService;
@@ -46,13 +47,13 @@ public class RatingController {
         return ResponseEntity.ok(ApiResponse.ok("평점 수정에 성공했습니다.", response));
     }
 
-    // 공통 응답 형식을 지키기 위해 204 대신 200 + result null로 응답합니다.
+    // 공통 응답 형식을 지키기 위해 204 대신 200 + 삭제된 ratingId로 응답합니다.
     @DeleteMapping("/ratings/{ratingId}")
-    public ResponseEntity<ApiResponse<Void>> delete(
+    public ResponseEntity<ApiResponse<RatingDeleteResponse>> delete(
             @RequestAttribute(AuthInterceptor.MEMBER_ID) Long memberId,
             @PathVariable Long ratingId
     ) {
-        ratingService.delete(memberId, ratingId);
-        return ResponseEntity.ok(ApiResponse.ok("평점 삭제에 성공했습니다.", null));
+        RatingDeleteResponse response = ratingService.delete(memberId, ratingId);
+        return ResponseEntity.ok(ApiResponse.ok("평점 삭제에 성공했습니다.", response));
     }
 }

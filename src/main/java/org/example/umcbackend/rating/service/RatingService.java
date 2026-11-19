@@ -5,6 +5,7 @@ import org.example.umcbackend.global.exception.ApiException;
 import org.example.umcbackend.member.entity.Member;
 import org.example.umcbackend.member.repository.MemberRepository;
 import org.example.umcbackend.rating.dto.CreateRatingRequest;
+import org.example.umcbackend.rating.dto.RatingDeleteResponse;
 import org.example.umcbackend.rating.dto.RatingResponse;
 import org.example.umcbackend.rating.dto.UpdateRatingRequest;
 import org.example.umcbackend.rating.entity.Rating;
@@ -62,10 +63,11 @@ public class RatingService {
     }
 
     @Transactional
-    public void delete(Long memberId, Long ratingId) {
+    public RatingDeleteResponse delete(Long memberId, Long ratingId) {
         Rating rating = findOwnedRating(memberId, ratingId);
 
         ratingRepository.delete(rating);
+        return new RatingDeleteResponse(ratingId);
     }
 
     /**
