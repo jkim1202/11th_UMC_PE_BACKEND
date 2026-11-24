@@ -1,3 +1,7 @@
 package org.example.umcbackend.member.dto;
 
-public record EmailCheckResponse(boolean available) {}
+import io.swagger.v3.oas.annotations.media.Schema;
+public record EmailCheckResponse(
+        @Schema(description = "사용 가능 여부 (true면 사용 가능)", example = "true")
+        boolean available
+) {}
