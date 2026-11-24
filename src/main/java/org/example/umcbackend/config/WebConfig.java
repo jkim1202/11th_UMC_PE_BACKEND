@@ -33,7 +33,10 @@ public class WebConfig implements WebMvcConfigurer {
                         "/members/email/**",    // 이메일 중복 체크
                         "/members/*/ratings",   // 유저별 평점 조회 (공개)
                         "/api/**",              // TMDB 영화 조회 (공개)
-                        "/error"                // 스프링 내부 에러 경로
+                        "/swagger-ui/**",       // Swagger UI
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**",      // OpenAPI 문서
+                        "/error"              // 스프링 내부 에러 경로
                 );
     }
 }
