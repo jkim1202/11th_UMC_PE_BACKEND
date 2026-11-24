@@ -1,5 +1,6 @@
 package org.example.umcbackend.tmdb.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.example.umcbackend.tmdb.service.TmdbService;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Hidden
 @RequiredArgsConstructor
 @RequestMapping("/api")
 public class TmdbController {
